@@ -4,7 +4,7 @@
   "type": "commonjs",
   "scripts": {
     "clean": "rm -rf dist && rm -rf node_modules && rm package-lock.json",
-    "genKeys": "npm run build:light && node dist/app/genKeys.js",
+    "genKeys": "ts-node src/app/genKeys.ts",
     "lint": "prettier \"**/*.{js,ts}\" --check",
     "lint:fix": "prettier \"**/*.{js,ts}\" -w",
     "test": "vitest --config ./src/tests/vitest.config.test.ts run",

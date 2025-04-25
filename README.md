@@ -38,13 +38,14 @@ E2E Faucet Test - END
 ### Generating keys and an address
 Note: Generate the private and public keys using these scripts for testing purposes only!
 ```
-npm genKeys
+npm run genKeys
 ```
 
 
 ### Running each test cases against a real network (eg. preprod)
-You will need to fund your network wallet corresponding to the address in the ```keys``` folder. Update and provide a valid Blockfrost API key in the ```.env``` file.
+You will need to fund your network wallet corresponding to the address in the ```keys``` folder. Update and provide a valid Blockfrost API key in the ```.env``` file and set the ```USE_EMULATOR``` to ```false```.
 ```
+USE_EMULATOR=false
 BLOCKFROST_API_KEY=blockfrost-api-key
 ```
 
