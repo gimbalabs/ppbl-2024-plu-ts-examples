@@ -1,21 +1,39 @@
 import { readFile } from "fs/promises";
-import { Buffer } from 'buffer';
-import {compile, DataB, DataConstr, DataI, defaultPreprodGenesisInfos, Hash28, pBSToData, pByteString, pIntToData, PTxOutRef} from '@harmoniclabs/plu-ts';
+import { Buffer } from "buffer";
+import {
+  compile,
+  DataB,
+  DataConstr,
+  DataI,
+  defaultPreprodGenesisInfos,
+  Hash28,
+  pBSToData,
+  pByteString,
+  pIntToData,
+  PTxOutRef,
+} from "@harmoniclabs/plu-ts";
 import { TxBuilder } from "@harmoniclabs/buildooor";
-import { Address, Credential, PrivateKey, Value, PublicKey, Script, ScriptType } from "@harmoniclabs/plu-ts";
-import { Emulator } from '@harmoniclabs/pluts-emulator';
-import { BlockfrostPluts } from '@harmoniclabs/blockfrost-pluts';
+import {
+  Address,
+  Credential,
+  PrivateKey,
+  Value,
+  PublicKey,
+  Script,
+  ScriptType,
+} from "@harmoniclabs/plu-ts";
+import { Emulator } from "@harmoniclabs/pluts-emulator";
+import { BlockfrostPluts } from "@harmoniclabs/blockfrost-pluts";
 
 import { ReturnType } from "./types";
-import { mintingContract } from '../contracts/minting';
-import { faucetContract } from '../contracts/faucet';
-import FaucetDatum from '../FaucetDatum';
-import FaucetRedeemer from '../FaucetRedeemer';
-import { isMainnet } from './client';
+import { mintingContract } from "../contracts/minting";
+import { faucetContract } from "../contracts/faucet";
+import FaucetDatum from "../FaucetDatum";
+import FaucetRedeemer from "../FaucetRedeemer";
+import { configEnv } from "../config/config";
 
 // Global constants
 const minAda = 5_000_000n;
-
 
 /** @internal */
 type MintArgs = {
@@ -30,78 +48,86 @@ export async function mint({
   client,
 }: MintArgs): Promise<ReturnType> {
   try {
-
-    const privateKeyFile = await readFile("./testnet/payment1.skey", { encoding: "utf-8" });
-    const privateKey = PrivateKey.fromCbor( JSON.parse(privateKeyFile).cborHex );
-    const addr = await readFile("./testnet/address1.addr", { encoding: "utf-8" });
+    const privateKeyFile = await readFile("./testnet/payment1.skey", {
+      encoding: "utf-8",
+    });
+    const privateKey = PrivateKey.fromCbor(JSON.parse(privateKeyFile).cborHex);
+    const addr = await readFile("./testnet/address1.addr", {
+      encoding: "utf-8",
+    });
     const address = Address.fromString(addr);
 
     let utxos;
     if (client instanceof Emulator) {
-        utxos = client.getAddressUtxos(address);
+      utxos = client.getAddressUtxos(address);
     } else {
-        utxos = await client.addressUtxos(address);
+      utxos = await client.addressUtxos(address);
     }
-    const utxo = utxos?.find(utxo => utxo.resolved.value.lovelaces > minAda);
+    const utxo = utxos?.find((utxo) => utxo.resolved.value.lovelaces > minAda);
     if (!utxo) {
-        throw new Error("No UTxO with at least " + minAda + " lovelaces found");
+      throw new Error("No UTxO with at least " + minAda + " lovelaces found");
     }
 
     const utxoRef = PTxOutRef.PTxOutRef({
       id: pBSToData.$(pByteString(utxo.utxoRef.id.toBuffer())),
       index: pIntToData.$(utxo.utxoRef.index),
-    })
+    });
 
     const compiledMintingContract = compile(mintingContract.$(utxoRef));
-        
+
     const mintingScript = new Script(
       ScriptType.PlutusV3,
-      compiledMintingContract
+      compiledMintingContract,
     );
 
     const mintingAddr = new Address(
-      isMainnet ? "mainnet" : "testnet",
-      Credential.script(mintingScript.hash)
+      configEnv.IS_MAINNET === "true" ? "mainnet" : "testnet",
+      Credential.script(mintingScript.hash),
     );
 
     const parameters = await client.getProtocolParameters();
-    let txBuilder = new TxBuilder (parameters);
+    let txBuilder = new TxBuilder(parameters);
 
     let tx = txBuilder.buildSync({
-        inputs: [{ utxo }],
-        changeAddress: address,
-        collaterals: [utxo],
-        collateralReturn: {
-          address: utxo.resolved.address,
-          value: Value.sub(utxo.resolved.value, Value.lovelaces(minAda))
-        },
-        mints: [{
+      inputs: [{ utxo }],
+      changeAddress: address,
+      collaterals: [utxo],
+      collateralReturn: {
+        address: utxo.resolved.address,
+        value: Value.sub(utxo.resolved.value, Value.lovelaces(minAda)),
+      },
+      mints: [
+        {
           value: Value.singleAsset(
             mintingAddr.paymentCreds.hash,
             Buffer.from(tokenName),
-            tokenQty
+            tokenQty,
           ),
           script: {
             inline: mintingScript,
             policyId: mintingAddr.paymentCreds.hash,
-            redeemer: new DataI( 0 )
-          }
-        }],
-        outputs: [
-          {
-              address: address,
-              value: Value.add(Value.singleAsset(
-                mintingAddr.paymentCreds.hash,
-                Buffer.from(tokenName),
-                tokenQty
-              ), Value.lovelaces(minAda)),
+            redeemer: new DataI(0),
           },
-        ]
-      });
-    
-    tx.signWith( new PrivateKey(privateKey) );
+        },
+      ],
+      outputs: [
+        {
+          address: address,
+          value: Value.add(
+            Value.singleAsset(
+              mintingAddr.paymentCreds.hash,
+              Buffer.from(tokenName),
+              tokenQty,
+            ),
+            Value.lovelaces(minAda),
+          ),
+        },
+      ],
+    });
 
-    const submittedTx = await client.submitTx( tx );
+    tx.signWith(new PrivateKey(privateKey));
+
+    const submittedTx = await client.submitTx(tx);
 
     return {
       status: 200,
@@ -140,82 +166,87 @@ export async function lock({
   client,
 }: LockArgs): Promise<ReturnType> {
   try {
-
-    const privateKeyFile = await readFile("./testnet/payment1.skey", { encoding: "utf-8" });
-    const privateKey = PrivateKey.fromCbor( JSON.parse(privateKeyFile).cborHex );
-    const addr = await readFile("./testnet/address1.addr", { encoding: "utf-8" });
+    const privateKeyFile = await readFile("./testnet/payment1.skey", {
+      encoding: "utf-8",
+    });
+    const privateKey = PrivateKey.fromCbor(JSON.parse(privateKeyFile).cborHex);
+    const addr = await readFile("./testnet/address1.addr", {
+      encoding: "utf-8",
+    });
     const address = Address.fromString(addr);
-    
+
     const faucetTokenPolicyHash = new Hash28(faucetTokenPolicy);
-    const compiledFaucetContract = compile(faucetContract.$(pByteString(accessTokenPolicy)).$(pByteString(faucetTokenPolicy)));
+    const compiledFaucetContract = compile(
+      faucetContract
+        .$(pByteString(accessTokenPolicy))
+        .$(pByteString(faucetTokenPolicy)),
+    );
 
     const faucetScript = new Script(
-        ScriptType.PlutusV3,
-        compiledFaucetContract
+      ScriptType.PlutusV3,
+      compiledFaucetContract,
     );
 
     const faucetAddr = new Address(
-        isMainnet ? "mainnet" : "testnet",
-        Credential.script( faucetScript.hash )
+      configEnv.IS_MAINNET === "true" ? "mainnet" : "testnet",
+      Credential.script(faucetScript.hash),
     );
 
     let utxos;
     if (client instanceof Emulator) {
-        utxos = client.getAddressUtxos(address);
+      utxos = client.getAddressUtxos(address);
     } else {
-        utxos = await client.addressUtxos(address);
+      utxos = await client.addressUtxos(address);
     }
-    const lockValue = 
-      Value.singleAsset(
-        faucetTokenPolicyHash,
-        Buffer.from(faucetTokenNameHex, 'hex'),
-        faucetLockedAmount
+    const lockValue = Value.singleAsset(
+      faucetTokenPolicyHash,
+      Buffer.from(faucetTokenNameHex, "hex"),
+      faucetLockedAmount,
     );
 
-    const utxo = utxos?.find(utxo => 
-      utxo.resolved.value.get(faucetTokenPolicyHash, Buffer.from(faucetTokenNameHex, 'hex')) >= faucetLockedAmount
+    const utxo = utxos?.find(
+      (utxo) =>
+        utxo.resolved.value.get(
+          faucetTokenPolicyHash,
+          Buffer.from(faucetTokenNameHex, "hex"),
+        ) >= faucetLockedAmount,
     );
     if (!utxo) {
-        throw new Error("No UTxO with required value found in wallet");
+      throw new Error("No UTxO with required value found in wallet");
     }
 
-    const spareUtxo = utxos?.find(utxo => 
-      {
-        const lovelaces = utxo.resolved.value.lovelaces;
-        return lovelaces > minAda && Value.isAdaOnly(utxo.resolved.value);
-      }
-    );
+    const spareUtxo = utxos?.find((utxo) => {
+      const lovelaces = utxo.resolved.value.lovelaces;
+      return lovelaces > minAda && Value.isAdaOnly(utxo.resolved.value);
+    });
 
     if (!spareUtxo) {
-        throw new Error("No spare UTxO with required value found in wallet");
+      throw new Error("No spare UTxO with required value found in wallet");
     }
 
     const parameters = await client.getProtocolParameters();
-    let txBuilder = new TxBuilder (parameters);
-    txBuilder.setGenesisInfos( defaultPreprodGenesisInfos )
+    let txBuilder = new TxBuilder(parameters);
+    txBuilder.setGenesisInfos(defaultPreprodGenesisInfos);
 
     let tx = txBuilder.buildSync({
-        inputs: [
-          { utxo: utxo },
-          { utxo: spareUtxo }
-        ],
-        collaterals: [ spareUtxo ],
-        outputs: [
-            {
-                address: faucetAddr,
-                value: Value.add(lockValue, Value.lovelaces(minAda)),
-                datum: FaucetDatum.FaucetDatum({
-                    withdrawalAmount: pIntToData.$(withdrawalAmount),
-                    faucetTokenName: pBSToData.$(pByteString(faucetTokenNameHex)), 
-                })
-            }
-        ],
-        changeAddress: address
+      inputs: [{ utxo: utxo }, { utxo: spareUtxo }],
+      collaterals: [spareUtxo],
+      outputs: [
+        {
+          address: faucetAddr,
+          value: Value.add(lockValue, Value.lovelaces(minAda)),
+          datum: FaucetDatum.FaucetDatum({
+            withdrawalAmount: pIntToData.$(withdrawalAmount),
+            faucetTokenName: pBSToData.$(pByteString(faucetTokenNameHex)),
+          }),
+        },
+      ],
+      changeAddress: address,
     });
-    
-    tx.signWith( new PrivateKey(privateKey) );
 
-    const submittedTx = await client.submitTx( tx );
+    tx.signWith(new PrivateKey(privateKey));
+
+    const submittedTx = await client.submitTx(tx);
 
     return {
       status: 200,
@@ -249,145 +280,168 @@ export async function withdraw({
   client,
 }: WithdrawArgs): Promise<ReturnType> {
   try {
-    const privateKeyFile = await readFile("./testnet/payment1.skey", { encoding: "utf-8" });
-    const privateKey = PrivateKey.fromCbor( JSON.parse(privateKeyFile).cborHex );
-    const publicKeyFile = await readFile("./testnet/payment1.vkey", { encoding: "utf-8" });
-    const pkh = PublicKey.fromCbor( JSON.parse(publicKeyFile).cborHex ).hash;
-    const addr = await readFile("./testnet/address1.addr", { encoding: "utf-8" });
+    const privateKeyFile = await readFile("./testnet/payment1.skey", {
+      encoding: "utf-8",
+    });
+    const privateKey = PrivateKey.fromCbor(JSON.parse(privateKeyFile).cborHex);
+    const publicKeyFile = await readFile("./testnet/payment1.vkey", {
+      encoding: "utf-8",
+    });
+    const pkh = PublicKey.fromCbor(JSON.parse(publicKeyFile).cborHex).hash;
+    const addr = await readFile("./testnet/address1.addr", {
+      encoding: "utf-8",
+    });
     const address = Address.fromString(addr);
-    
+
     const accessTokenPolicyHash = new Hash28(accessTokenPolicy);
     const faucetTokenPolicyHash = new Hash28(faucetTokenPolicy);
-    const compiledFaucetContract = compile(faucetContract.$(pByteString(accessTokenPolicy)).$(pByteString(faucetTokenPolicy)));
-  
+    const compiledFaucetContract = compile(
+      faucetContract
+        .$(pByteString(accessTokenPolicy))
+        .$(pByteString(faucetTokenPolicy)),
+    );
+
     const faucetScript = new Script(
-        ScriptType.PlutusV3,
-        compiledFaucetContract
+      ScriptType.PlutusV3,
+      compiledFaucetContract,
     );
 
     const faucetAddr = new Address(
-        isMainnet ? "mainnet" : "testnet",
-        Credential.script( faucetScript.hash )
+      configEnv.IS_MAINNET === "true" ? "mainnet" : "testnet",
+      Credential.script(faucetScript.hash),
     );
-    
+
     let utxos;
     let scriptUtxos;
     console.log("address: ", address.toString());
     console.log("faucetAddr: ", faucetAddr.toString());
     if (client instanceof Emulator) {
-        utxos = client.getAddressUtxos(address);
-        scriptUtxos = client.getAddressUtxos(faucetAddr);
+      utxos = client.getAddressUtxos(address);
+      scriptUtxos = client.getAddressUtxos(faucetAddr);
     } else {
-        utxos = await client.addressUtxos(address);
-        scriptUtxos = await client.addressUtxos(faucetAddr);
+      utxos = await client.addressUtxos(address);
+      scriptUtxos = await client.addressUtxos(faucetAddr);
     }
 
-    const withdrawValue = 
-      Value.singleAsset(
-        faucetTokenPolicyHash,
-        Buffer.from(faucetTokenNameHex, 'hex'),
-        withdrawalAmount
+    const withdrawValue = Value.singleAsset(
+      faucetTokenPolicyHash,
+      Buffer.from(faucetTokenNameHex, "hex"),
+      withdrawalAmount,
     );
 
-    const accessTokenValue = 
-    Value.singleAsset(
+    const accessTokenValue = Value.singleAsset(
       accessTokenPolicyHash,
-      Buffer.from(accessTokenNameHex, 'hex'),
-      1n
+      Buffer.from(accessTokenNameHex, "hex"),
+      1n,
     );
 
     const utxo = utxos?.find(
-      utxo => utxo.resolved.value.get(accessTokenPolicyHash, Buffer.from(accessTokenNameHex, 'hex')) >= 1n
+      (utxo) =>
+        utxo.resolved.value.get(
+          accessTokenPolicyHash,
+          Buffer.from(accessTokenNameHex, "hex"),
+        ) >= 1n,
     );
     if (!utxo) {
-        throw new Error("No UTxO with required value found in wallet");
+      throw new Error("No UTxO with required value found in wallet");
     }
 
-    const spareUtxo = utxos?.find(utxo => 
-      {
-        const lovelaces = utxo.resolved.value.lovelaces;
-        return lovelaces > minAda && Value.isAdaOnly(utxo.resolved.value);
-      }
-    );
+    const spareUtxo = utxos?.find((utxo) => {
+      const lovelaces = utxo.resolved.value.lovelaces;
+      return lovelaces > minAda && Value.isAdaOnly(utxo.resolved.value);
+    });
 
     if (!spareUtxo) {
-        throw new Error("No spare UTxO with required value found in wallet");
+      throw new Error("No spare UTxO with required value found in wallet");
     }
 
     if (!scriptUtxos) {
-        throw new Error("Unable to find utxos at " + addr);
+      throw new Error("Unable to find utxos at " + addr);
     }
 
-    const scriptUtxo = scriptUtxos.find(utxo => {
-        if (utxo.resolved.datum instanceof DataConstr) { 
-          const withdrawalAmountData = utxo.resolved.datum.fields[0];
-          const faucetTokenNameData = utxo.resolved.datum.fields[1];
+    const scriptUtxo = scriptUtxos.find((utxo) => {
+      if (utxo.resolved.datum instanceof DataConstr) {
+        const withdrawalAmountData = utxo.resolved.datum.fields[0];
+        const faucetTokenNameData = utxo.resolved.datum.fields[1];
 
-          if (withdrawalAmountData instanceof DataI && faucetTokenNameData instanceof DataB) {
-              let validTokenName = Buffer.from(faucetTokenNameData.bytes.toBuffer()).toString("hex") == faucetTokenNameHex
-              let validWithdrawalAmount = withdrawalAmountData.int == withdrawalAmount
-              return validTokenName && validWithdrawalAmount;
-          }
+        if (
+          withdrawalAmountData instanceof DataI &&
+          faucetTokenNameData instanceof DataB
+        ) {
+          let validTokenName =
+            Buffer.from(faucetTokenNameData.bytes.toBuffer()).toString("hex") ==
+            faucetTokenNameHex;
+          let validWithdrawalAmount =
+            withdrawalAmountData.int == withdrawalAmount;
+          return validTokenName && validWithdrawalAmount;
         }
-        return false; 
+      }
+      return false;
     });
-    if (!scriptUtxo) {  
-        throw new Error ("No script utxo found for the withdrawal amount and token name")
+    if (!scriptUtxo) {
+      throw new Error(
+        "No script utxo found for the withdrawal amount and token name",
+      );
     }
 
     const scriptUtxoValue = scriptUtxo.resolved.value;
 
-    const remainingValue = 
-      Value.singleAsset(
+    const remainingValue = Value.singleAsset(
+      faucetTokenPolicyHash,
+      Buffer.from(faucetTokenNameHex, "hex"),
+      Value.sub(scriptUtxoValue, withdrawValue).get(
         faucetTokenPolicyHash,
-        Buffer.from(faucetTokenNameHex, 'hex'),
-        Value.sub(scriptUtxoValue, withdrawValue).get(faucetTokenPolicyHash, Buffer.from(faucetTokenNameHex, 'hex'))
+        Buffer.from(faucetTokenNameHex, "hex"),
+      ),
     );
 
     const parameters = await client.getProtocolParameters();
-    let txBuilder = new TxBuilder (parameters);
+    let txBuilder = new TxBuilder(parameters);
 
     let tx = txBuilder.buildSync({
-        inputs: [
-          { utxo: utxo },
-          { utxo: spareUtxo },
-          {
-            utxo: scriptUtxo,
-            inputScript: {
-                script: faucetScript,
-                datum: "inline",
-                redeemer: FaucetRedeemer.Withdraw({
-                  senderPkh: pBSToData.$(pByteString(pkh.toBuffer())),
-                  accessTokenName: pBSToData.$(pByteString(accessTokenNameHex)), 
-              })
-            }
-        }
-        ],
-        collaterals: [ spareUtxo ],
-        collateralReturn: {
-          address: spareUtxo.resolved.address,
-          value: Value.sub(spareUtxo.resolved.value, Value.lovelaces(minAda))
+      inputs: [
+        { utxo: utxo },
+        { utxo: spareUtxo },
+        {
+          utxo: scriptUtxo,
+          inputScript: {
+            script: faucetScript,
+            datum: "inline",
+            redeemer: FaucetRedeemer.Withdraw({
+              senderPkh: pBSToData.$(pByteString(pkh.toBuffer())),
+              accessTokenName: pBSToData.$(pByteString(accessTokenNameHex)),
+            }),
+          },
         },
-        outputs: [
-            {
-                address: address,
-                value: Value.add(Value.add(accessTokenValue, withdrawValue), Value.lovelaces(minAda)),
-            },
-            {
-                address: scriptUtxo.resolved.address,
-                value: Value.add(remainingValue, Value.lovelaces(minAda)),
-                datum: FaucetDatum.FaucetDatum({
-                    withdrawalAmount: pIntToData.$(withdrawalAmount),
-                    faucetTokenName: pBSToData.$(pByteString(faucetTokenNameHex)), 
-                })
-            }
-        ],
-        changeAddress: address
+      ],
+      collaterals: [spareUtxo],
+      collateralReturn: {
+        address: spareUtxo.resolved.address,
+        value: Value.sub(spareUtxo.resolved.value, Value.lovelaces(minAda)),
+      },
+      outputs: [
+        {
+          address: address,
+          value: Value.add(
+            Value.add(accessTokenValue, withdrawValue),
+            Value.lovelaces(minAda),
+          ),
+        },
+        {
+          address: scriptUtxo.resolved.address,
+          value: Value.add(remainingValue, Value.lovelaces(minAda)),
+          datum: FaucetDatum.FaucetDatum({
+            withdrawalAmount: pIntToData.$(withdrawalAmount),
+            faucetTokenName: pBSToData.$(pByteString(faucetTokenNameHex)),
+          }),
+        },
+      ],
+      changeAddress: address,
     });
-    
-    tx.signWith( new PrivateKey(privateKey) );
 
-    const submittedTx = await client.submitTx( tx );
+    tx.signWith(new PrivateKey(privateKey));
+
+    const submittedTx = await client.submitTx(tx);
 
     return {
       status: 200,

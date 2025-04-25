@@ -3,13 +3,10 @@
   "version": "0.0.2",
   "type": "commonjs",
   "scripts": {
-    "build": "rm -rf ./dist && tsc -p ./tsconfig.json && tsc-alias -p ./tsconfig.json",
-    "build:light": "tsc -p ./tsconfig.json && tsc-alias -p ./tsconfig.json",
-    "setup": "npm run build:light && node dist/app/setup.js",
+    "clean": "rm -rf dist && rm -rf node_modules && rm package-lock.json",
     "genKeys": "npm run build:light && node dist/app/genKeys.js",
-    "vesting:returnFaucet": "npm run build:light && node dist/app/returnFaucet.js",
-    "vesting:create": "npm run build:light && node dist/app/createVesting.js",
-    "vesting:claim": "npm run build:light && node dist/app/claimVesting.js",
+    "lint": "prettier \"**/*.{js,ts}\" --check",
+    "lint:fix": "prettier \"**/*.{js,ts}\" -w",
     "test": "vitest --config ./src/tests/vitest.config.test.ts run",
     "test:network": "vitest --config ./src/tests/vitest.config.test.ts run -t"
   },
@@ -21,6 +18,7 @@
     "bip39": "^3.1.0",
     "blakejs": "^1.2.1",
     "dotenv": "^16.0.3",
+    "prettier": "^3.5.3",
     "vitest": "^3.1.2"
   },
   "devDependencies": {

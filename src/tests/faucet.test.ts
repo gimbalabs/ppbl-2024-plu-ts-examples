@@ -1,8 +1,8 @@
-import { readFile } from 'fs/promises';
-import { UTxO, Value } from '@harmoniclabs/plu-ts';
-import { Emulator } from '@harmoniclabs/pluts-emulator';
-import { BlockfrostPluts } from '@harmoniclabs/blockfrost-pluts';
-import { Address } from '@harmoniclabs/plu-ts';
+import { readFile } from "fs/promises";
+import { UTxO, Value } from "@harmoniclabs/plu-ts";
+import { Emulator } from "@harmoniclabs/pluts-emulator";
+import { BlockfrostPluts } from "@harmoniclabs/blockfrost-pluts";
+import { Address } from "@harmoniclabs/plu-ts";
 import {
   afterAll,
   afterEach,
@@ -18,7 +18,6 @@ import { lock, mint, withdraw } from "./offchain";
 import { generateReport } from "./utils";
 import { configEnv } from "../config/config";
 import { ReturnType } from "./types";
-
 
 let client: Emulator | BlockfrostPluts;
 
@@ -41,7 +40,7 @@ describe("Faucet", () => {
   // Cleanup code that runs once after all tests
   afterAll(async () => {
     if (client instanceof Emulator) {
-        client.printAllUTXOs();
+      client.printAllUTXOs();
     }
     generateReport(exCosts);
     console.log("E2E Faucet Test - END");
@@ -49,9 +48,9 @@ describe("Faucet", () => {
 
   afterEach(async () => {
     if (client instanceof Emulator) {
-        client.awaitBlock(1)
+      client.awaitBlock(1);
     } else {
-        // wait for block confirmations
+      // wait for block confirmations
     }
   });
 
@@ -139,21 +138,22 @@ describe("Faucet", () => {
     exCosts.push(result);
     console.log("\n--- After Withdraw Faucet Token Tx ---");
   }, 1000000);
-  
-  test("Check Wallet Balance", async () => {
 
-    const addr = await readFile("./testnet/address1.addr", { encoding: "utf-8" });
+  test("Check Wallet Balance", async () => {
+    const addr = await readFile("./testnet/address1.addr", {
+      encoding: "utf-8",
+    });
     const address = Address.fromString(addr);
-    
+
     let utxos: UTxO[] | undefined;
     if (client instanceof Emulator) {
-        utxos = client.getAddressUtxos(address);
+      utxos = client.getAddressUtxos(address);
     } else {
-        utxos = await client.addressUtxos(address);
+      utxos = await client.addressUtxos(address);
     }
 
     if (!utxos) {
-        throw new Error("No UTxOs found for address " + address);
+      throw new Error("No UTxOs found for address " + address);
     }
 
     const walletValueEnd = utxos.reduce(
@@ -164,16 +164,16 @@ describe("Faucet", () => {
     assert(
       walletValueEnd.get(
         accessTokenPolicy,
-        Buffer.from(accessTokenNameHex, "hex")
+        Buffer.from(accessTokenNameHex, "hex"),
       ) == 1n,
-      "Access token balance is not 1"
+      "Access token balance is not 1",
     );
     assert(
       walletValueEnd.get(
         faucetTokenPolicy,
-        Buffer.from(faucetTokenNameHex, "hex")
+        Buffer.from(faucetTokenNameHex, "hex"),
       ) == 200n,
-      "Faucet token balance is not 200"
+      "Faucet token balance is not 200",
     );
   }, 1000000);
 });
