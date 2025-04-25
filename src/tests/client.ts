@@ -23,12 +23,6 @@ export async function initializeClient() {
     const utxo1: IUTxO = experimentFunctions.createInitialUTxO(100_000_000n, address1, utxoHash1);
     utxosInit.push(utxo1);
 
-    //const addr2 = await readFile("./testnet/address2.addr", { encoding: "utf-8" });
-    //const address2 = Address.fromString(addr2);
-    //const utxoHash2 = experimentFunctions.generateRandomTxHash(2);
-    //const utxo2: IUTxO = experimentFunctions.createInitialUTxO(100_000_000n, address2, utxoHash2);
-    //utxosInit.push(utxo2);
-
     return new Emulator(utxosInit, defaultMainnetGenesisInfos, defaultProtocolParameters);
   } else {
     return new BlockfrostPluts({

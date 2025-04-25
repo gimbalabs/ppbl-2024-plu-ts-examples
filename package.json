@@ -10,11 +10,12 @@
     "vesting:returnFaucet": "npm run build:light && node dist/app/returnFaucet.js",
     "vesting:create": "npm run build:light && node dist/app/createVesting.js",
     "vesting:claim": "npm run build:light && node dist/app/claimVesting.js",
-    "test": "vitest --config ./src/tests/vitest.config.test.ts run"
+    "test": "vitest --config ./src/tests/vitest.config.test.ts run",
+    "test:network": "vitest --config ./src/tests/vitest.config.test.ts run -t"
   },
   "dependencies": {
     "@harmoniclabs/blockfrost-pluts": "^0.1.15",
-    "@harmoniclabs/buildooor": "^0.1.4",
+    "@harmoniclabs/buildooor": "^0.1.2",
     "@harmoniclabs/plu-ts": "^0.9.0",
     "@harmoniclabs/pluts-emulator": "^0.0.1-dev2",
     "bip39": "^3.1.0",

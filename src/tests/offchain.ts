@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { Buffer } from 'buffer';
-import {compile, DataB, DataConstr, DataI, defaultMainnetGenesisInfos, defaultProtocolParameters, Hash28, pBSToData, pByteString, pIntToData, PTxOutRef, TxBuilder} from '@harmoniclabs/plu-ts';
+import {compile, DataB, DataConstr, DataI, defaultPreprodGenesisInfos, Hash28, pBSToData, pByteString, pIntToData, PTxOutRef} from '@harmoniclabs/plu-ts';
+import { TxBuilder } from "@harmoniclabs/buildooor";
 import { Address, Credential, PrivateKey, Value, PublicKey, Script, ScriptType } from "@harmoniclabs/plu-ts";
 import { Emulator } from '@harmoniclabs/pluts-emulator';
 import { BlockfrostPluts } from '@harmoniclabs/blockfrost-pluts';
@@ -41,7 +42,7 @@ export async function mint({
     } else {
         utxos = await client.addressUtxos(address);
     }
-    const utxo = utxos?.find(utxo => utxo.resolved.value.lovelaces >= minAda);
+    const utxo = utxos?.find(utxo => utxo.resolved.value.lovelaces > minAda);
     if (!utxo) {
         throw new Error("No UTxO with at least " + minAda + " lovelaces found");
     }
@@ -63,7 +64,8 @@ export async function mint({
       Credential.script(mintingScript.hash)
     );
 
-    let txBuilder = new TxBuilder (defaultProtocolParameters, defaultMainnetGenesisInfos)
+    const parameters = await client.getProtocolParameters();
+    let txBuilder = new TxBuilder (parameters);
 
     let tx = txBuilder.buildSync({
         inputs: [{ utxo }],
@@ -84,7 +86,17 @@ export async function mint({
             policyId: mintingAddr.paymentCreds.hash,
             redeemer: new DataI( 0 )
           }
-        }]
+        }],
+        outputs: [
+          {
+              address: address,
+              value: Value.add(Value.singleAsset(
+                mintingAddr.paymentCreds.hash,
+                Buffer.from(tokenName),
+                tokenQty
+              ), Value.lovelaces(minAda)),
+          },
+        ]
       });
     
     tx.signWith( new PrivateKey(privateKey) );
@@ -136,7 +148,7 @@ export async function lock({
     
     const faucetTokenPolicyHash = new Hash28(faucetTokenPolicy);
     const compiledFaucetContract = compile(faucetContract.$(pByteString(accessTokenPolicy)).$(pByteString(faucetTokenPolicy)));
-      
+
     const faucetScript = new Script(
         ScriptType.PlutusV3,
         compiledFaucetContract
@@ -160,16 +172,34 @@ export async function lock({
         faucetLockedAmount
     );
 
-    const utxo = utxos?.find(utxo => utxo.resolved.value >= lockValue);
+    const utxo = utxos?.find(utxo => 
+      utxo.resolved.value.get(faucetTokenPolicyHash, Buffer.from(faucetTokenNameHex, 'hex')) >= faucetLockedAmount
+    );
     if (!utxo) {
         throw new Error("No UTxO with required value found in wallet");
     }
 
-    let txBuilder = new TxBuilder (defaultProtocolParameters, defaultMainnetGenesisInfos)
+    const spareUtxo = utxos?.find(utxo => 
+      {
+        const lovelaces = utxo.resolved.value.lovelaces;
+        return lovelaces > minAda && Value.isAdaOnly(utxo.resolved.value);
+      }
+    );
+
+    if (!spareUtxo) {
+        throw new Error("No spare UTxO with required value found in wallet");
+    }
+
+    const parameters = await client.getProtocolParameters();
+    let txBuilder = new TxBuilder (parameters);
+    txBuilder.setGenesisInfos( defaultPreprodGenesisInfos )
 
     let tx = txBuilder.buildSync({
-        inputs: [{ utxo: utxo }],
-        collaterals: [ utxo ],
+        inputs: [
+          { utxo: utxo },
+          { utxo: spareUtxo }
+        ],
+        collaterals: [ spareUtxo ],
         outputs: [
             {
                 address: faucetAddr,
@@ -266,7 +296,9 @@ export async function withdraw({
       1n
     );
 
-    const utxo = utxos?.find(utxo => utxo.resolved.value >= accessTokenValue);
+    const utxo = utxos?.find(
+      utxo => utxo.resolved.value.get(accessTokenPolicyHash, Buffer.from(accessTokenNameHex, 'hex')) >= 1n
+    );
     if (!utxo) {
         throw new Error("No UTxO with required value found in wallet");
     }
@@ -274,8 +306,7 @@ export async function withdraw({
     const spareUtxo = utxos?.find(utxo => 
       {
         const lovelaces = utxo.resolved.value.lovelaces;
-        const tokenQty = utxo.resolved.value.get(faucetTokenPolicyHash, Buffer.from(faucetTokenNameHex, 'hex'));
-        return lovelaces >= minAda && tokenQty == 0n;
+        return lovelaces > minAda && Value.isAdaOnly(utxo.resolved.value);
       }
     );
 
@@ -313,7 +344,8 @@ export async function withdraw({
         Value.sub(scriptUtxoValue, withdrawValue).get(faucetTokenPolicyHash, Buffer.from(faucetTokenNameHex, 'hex'))
     );
 
-    let txBuilder = new TxBuilder (defaultProtocolParameters, defaultMainnetGenesisInfos)
+    const parameters = await client.getProtocolParameters();
+    let txBuilder = new TxBuilder (parameters);
 
     let tx = txBuilder.buildSync({
         inputs: [
@@ -331,7 +363,11 @@ export async function withdraw({
             }
         }
         ],
-        collaterals: [ utxo ],
+        collaterals: [ spareUtxo ],
+        collateralReturn: {
+          address: spareUtxo.resolved.address,
+          value: Value.sub(spareUtxo.resolved.value, Value.lovelaces(minAda))
+        },
         outputs: [
             {
                 address: address,
