@@ -48,11 +48,11 @@ export async function mint({
   client,
 }: MintArgs): Promise<ReturnType> {
   try {
-    const privateKeyFile = await readFile("./testnet/payment1.skey", {
+    const privateKeyFile = await readFile("./keys/payment1.skey", {
       encoding: "utf-8",
     });
     const privateKey = PrivateKey.fromCbor(JSON.parse(privateKeyFile).cborHex);
-    const addr = await readFile("./testnet/address1.addr", {
+    const addr = await readFile("./keys/address1.addr", {
       encoding: "utf-8",
     });
     const address = Address.fromString(addr);
@@ -166,11 +166,11 @@ export async function lock({
   client,
 }: LockArgs): Promise<ReturnType> {
   try {
-    const privateKeyFile = await readFile("./testnet/payment1.skey", {
+    const privateKeyFile = await readFile("./keys/payment1.skey", {
       encoding: "utf-8",
     });
     const privateKey = PrivateKey.fromCbor(JSON.parse(privateKeyFile).cborHex);
-    const addr = await readFile("./testnet/address1.addr", {
+    const addr = await readFile("./keys/address1.addr", {
       encoding: "utf-8",
     });
     const address = Address.fromString(addr);
@@ -280,15 +280,15 @@ export async function withdraw({
   client,
 }: WithdrawArgs): Promise<ReturnType> {
   try {
-    const privateKeyFile = await readFile("./testnet/payment1.skey", {
+    const privateKeyFile = await readFile("./keys/payment1.skey", {
       encoding: "utf-8",
     });
     const privateKey = PrivateKey.fromCbor(JSON.parse(privateKeyFile).cborHex);
-    const publicKeyFile = await readFile("./testnet/payment1.vkey", {
+    const publicKeyFile = await readFile("./keys/payment1.vkey", {
       encoding: "utf-8",
     });
     const pkh = PublicKey.fromCbor(JSON.parse(publicKeyFile).cborHex).hash;
-    const addr = await readFile("./testnet/address1.addr", {
+    const addr = await readFile("./keys/address1.addr", {
       encoding: "utf-8",
     });
     const address = Address.fromString(addr);

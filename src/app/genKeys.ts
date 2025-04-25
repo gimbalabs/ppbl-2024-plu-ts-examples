@@ -19,8 +19,8 @@ async function genKeys() {
 
   const promises: Promise<any>[] = [];
 
-  if (!existsSync("./testnet")) {
-    await mkdir("./testnet");
+  if (!existsSync("./keys")) {
+    await mkdir("./keys");
   }
 
   for (let i = 1; i <= nKeys; i++) {
@@ -52,7 +52,7 @@ async function genKeys() {
       cborHex: publicKey.toCbor().toString(),
     }; // JSON structure similar to the one generated when by Cardano CLI
     const pubKeyJsonStr = JSON.stringify(pubKeyJsonObj, null, 4);
-    await writeFile(`./testnet/payment${i}.vkey`, pubKeyJsonStr);
+    await writeFile(`./keys/payment${i}.vkey`, pubKeyJsonStr);
 
     // Export of the private key in a way that's compatible with the Cardano CLI
     const privateKeyArrayBuffer = await globalThis.crypto.subtle.exportKey(
@@ -69,7 +69,7 @@ async function genKeys() {
       cborHex: privateKey.toCbor().toString(),
     }; // JSON structure similar to the one generated when by Cardano CLI
     const pvtKeyJsonStr = JSON.stringify(pvtKeyJsonObj, null, 4);
-    await writeFile(`./testnet/payment${i}.skey`, pvtKeyJsonStr);
+    await writeFile(`./keys/payment${i}.skey`, pvtKeyJsonStr);
 
     // Check that the derivations went fine
     const pubKeyfromPriv = privateKey.derivePublicKey();
@@ -82,7 +82,7 @@ async function genKeys() {
     // Create the address
     const credential = Credential.keyHash(publicKeyHash);
     const address = new Address("testnet", credential);
-    await writeFile(`./testnet/address${i}.addr`, address.toString());
+    await writeFile(`./keys/address${i}.addr`, address.toString());
   }
 
   // wait for all files to be copied

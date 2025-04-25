@@ -140,7 +140,7 @@ describe("Faucet", () => {
   }, 1000000);
 
   test("Check Wallet Balance", async () => {
-    const addr = await readFile("./testnet/address1.addr", {
+    const addr = await readFile("./keys/address1.addr", {
       encoding: "utf-8",
     });
     const address = Address.fromString(addr);

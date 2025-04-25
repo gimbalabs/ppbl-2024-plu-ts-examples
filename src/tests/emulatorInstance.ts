@@ -8,12 +8,12 @@ import { Emulator, experimentFunctions } from "@harmoniclabs/pluts-emulator";
 import { readFile } from "fs/promises";
 
 async function initializeEmulator(): Promise<Emulator> {
-  const addr1 = await readFile("./testnet/address1.addr", {
+  const addr1 = await readFile("./keys/address1.addr", {
     encoding: "utf-8",
   });
   const address1 = Address.fromString(addr1);
 
-  const addr2 = await readFile("./testnet/address2.addr", {
+  const addr2 = await readFile("./keys/address2.addr", {
     encoding: "utf-8",
   });
   const address2 = Address.fromString(addr2);

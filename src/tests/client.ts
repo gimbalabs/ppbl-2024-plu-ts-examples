@@ -17,7 +17,7 @@ export async function initializeClient() {
   if (configEnv.USE_EMULATOR === "true") {
     const utxosInit: IUTxO[] = [];
 
-    const addr1 = await readFile("./testnet/address1.addr", {
+    const addr1 = await readFile("./keys/address1.addr", {
       encoding: "utf-8",
     });
     const address1 = Address.fromString(addr1);
