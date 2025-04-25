@@ -43,7 +43,7 @@ npm genKeys
 
 
 ### Running each test cases against a real network (eg. preprod)
-You will need to fund your network wallet corresponding to the address in the secrets folder. Copy the ```.env.example``` file to create a ```.env``` file and provide a valid Blockfrost API key.
+You will need to fund your network wallet corresponding to the address in the ```keys``` folder. Copy the ```.env.example``` file to create a ```.env``` file and provide a valid Blockfrost API key.
 ```
 BLOCKFROST_API_KEY=blockfrost-api-key
 ```
