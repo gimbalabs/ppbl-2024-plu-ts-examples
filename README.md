@@ -1,76 +1,84 @@
-# vesting-pluts
-
-[`plu-ts`](https://github.com/HarmonicLabs/plu-ts) implementation of the "vesting" contract example;
-
-## Contract
-
-the contract succeeds if the following two conditions are met:
-
-- the transaction is signed by the `PPubKeyHash` defined in the UTxO datum;
-- the transaction lower bound is `Finite` and greather than the datum `deadline` field
-
-the contract source code can be found at [`src/contract.ts`](./src/contract.ts);
-
-## Using the contract
-
-the repository includes a series of scripts to interact with the contract:
-
-### compile
-
-compiles the contract defined in [`src/contract.ts`](./src/contract.ts) and saves the result in a file caled `testnet/vesting.plutus.json` following the `cardano-cli` format.
-
-run using
-```bash
-npm run vesting:compile
+# Plutus Project Based Learning 
+## Testing PPBL Faucet in Plu-ts
+### Setup
+```
+$ git clone https://github.com/gimbalabs/ppbl-2024-plu-ts-examples.git
+$ cd ppbl-2024-plu-ts-examples
+$ npm install
+$ cp .env.example .env
 ```
 
-### setup (private testnet)
+### Runing the emulator test suite
+```
+$ npm run test
+...
+Transaction Name     | CPU             | MEM         | FEE       
+-----------------------------------------------------------------
+Mint                 | 7,214,675       | 20,343      | 189,108 
+Mint                 | 7,214,675       | 20,343      | 189,460 
+Lock                 |                 |             | 174,697 
+Withdraw             | 125,698,302     | 373,454     | 294,233 
+Withdraw             | 159,902,578     | 449,016     | 303,171 
+E2E Faucet Test - END
 
-> Alternatively you can use the `genKeys` script
+ ✓ src/tests/faucet.test.ts (6 tests) 11938ms
+   ✓ Faucet > Mint Access Token  976ms
+   ✓ Faucet > Mint Faucet Token 266ms
+   ✓ Faucet > Lock Faucet Token  3833ms
+   ✓ Faucet > Withdraw Faucet Token 1  3340ms
+   ✓ Faucet > Withdraw Faucet Token 2  3486ms
+   ✓ Faucet > Check Wallet Balance 2ms
 
-requires the `PRIVATE_TESTNET_PATH` environment variable.
-
-the `private-testnet` folder assumes a structure like the one of the [`woofpool/cardano-private-testnet-setup`](https://github.com/woofpool/cardano-private-testnet-setup)
-
-run using
-```bash
-npm run vesting:setup
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  12:29:55
+   Duration  13.90s (transform 135ms, setup 0ms, collect 1.62s, tests 11.94s, environment 0ms, prepare 79ms)
 ```
 
-### genKeys (testnet or mainnet)
-
-generates two pairs of keys and two addresses in the `./testnet` folder
-
-run using
-```bash
-npm run vesting:genKeys
+### Generating keys and an address
+Note: Generate the private and public keys using these scripts for testing purposes only!
+```
+npm genKeys
 ```
 
-### create
 
-creates an utxo on the contract with the `testnet/payment2.vkey` credentials as beneficiary and a deadline setted to 10 seconds after the execution of the script
-
-run using
-```bash
-npm run vesting:create
+### Running each test cases against a real network (eg. preprod)
+You will need to fund your network wallet corresponding to the address in the secrets folder. Copy the ```.env.example``` file to create a ```.env``` file and provide a valid Blockfrost API key.
+```
+BLOCKFROST_API_KEY=blockfrost-api-key
 ```
 
-### claim
-
-tries to spend the first utxo on the contract using `testnet/payment2.skey` as `requiredSigner`
-
-the transaction might fail if the deadline is not met
-
-run using
-```bash
-npm run vesting:claim
+The first step is to mint an accesss and a faucet token, but wait until you confirm each transaction after running each test.
+```
+$ npm run test:network "Mint Access Token"
+$ npm run test:network "Mint Faucet Token"
 ```
 
-### returnFaucet (testnet)
-
-creates a trasaction using all `testnet/address1.addr` and `testnet/address2.addr` as input going to the testnet faucet.
-
-run using
-```bash
-npm run vesting:returnFaucet
+Update the ```tokenNameHex``` and ```mintingPolicy``` for the correct access token and faucet token in the ```.env``` file
 ```
+# Token Configuration
+ACCESS_TOKEN_NAME_HEX=
+ACCESS_TOKEN_POLICY=
+FAUCET_TOKEN_NAME_HEX=
+FAUCET_TOKEN_POLICY=
+```
+
+Next, lock the faucet tokens to the validator script address
+```
+$ npm run test:network "Lock Faucet Token"
+```
+
+Using a preprod cardano explorer such as https://preprod.cardanoscan.io/, you should be able to verify that the faucet tokens are locked at the script address using the tx id provided in the testing output.
+
+Now, you are ready to execute the smart contract.
+```
+$ npm run test:network "Withdraw Faucet Token 1"
+```
+
+Once the transaction is confirmed, you will see the 100 faucet tokens transferred from the faucet validator script into the wallet.
+
+
+For more information on plu-ts, please refer to the user documentation https://pluts.harmoniclabs.tech/
+
+
+
