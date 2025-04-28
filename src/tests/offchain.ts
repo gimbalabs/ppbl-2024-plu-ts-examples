@@ -230,7 +230,6 @@ export async function lock({
 
     let tx = txBuilder.buildSync({
       inputs: [{ utxo: utxo }, { utxo: spareUtxo }],
-      collaterals: [spareUtxo],
       outputs: [
         {
           address: faucetAddr,
