@@ -8,11 +8,17 @@ import {
 } from "@harmoniclabs/plu-ts";
 import { config } from "dotenv";
 import { mkdir, writeFile } from "fs/promises";
+import * as crypto from 'crypto';
 
 import pkg from "blakejs";
 const { blake2b } = pkg;
 
 config();
+
+// If running in Node.js environment, use the global crypto
+const cryptoModule = typeof window === 'undefined' 
+  ? (globalThis as any).crypto || crypto.webcrypto
+  : window.crypto;
 
 async function genKeys() {
   const nKeys = 1;
@@ -25,7 +31,7 @@ async function genKeys() {
 
   for (let i = 1; i <= nKeys; i++) {
     // generate public-private keypair
-    let keyPair = await globalThis.crypto.subtle.generateKey(
+    const keyPair = await cryptoModule.subtle.generateKey(
       {
         name: "Ed25519",
         namedCurve: "Ed25519",
@@ -37,7 +43,7 @@ async function genKeys() {
     // convert keyPair.(publicKey|privateKey)<CryptoKeyPair> ultimately to PublicKey which can be converted to cborString to store it for future reference
 
     // Export public key in a way compatible to Cardano CLI
-    const publicKeyArrayBuffer = await globalThis.crypto.subtle.exportKey(
+    const publicKeyArrayBuffer = await cryptoModule.subtle.exportKey(
       "raw",
       keyPair.publicKey,
     );
